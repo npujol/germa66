@@ -10,6 +10,7 @@
   )
 , mkGoEnv ? pkgs.mkGoEnv
 , gomod2nix ? pkgs.gomod2nix
+, mypkgs
 , ...
 }:
 
@@ -29,5 +30,6 @@ pkgs.mkShell {
     pkgs.go-task
     pkgs.delve
     pkgs.go-swag
+    mypkgs.pyglossary
   ];
 }

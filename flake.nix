@@ -7,8 +7,9 @@
   inputs.gomod2nix.inputs.nixpkgs.follows = "nixpkgs";
   inputs.gomod2nix.inputs.flake-utils.follows = "flake-utils";
   inputs.pre-commit-hooks.url = "github:cachix/pre-commit-hooks.nix";
+  inputs.leiserfg-overlay.url = "github:leiserfg/leiserfg-overlay";
 
-  outputs = { self, nixpkgs, flake-utils, gomod2nix, pre-commit-hooks }:
+  outputs = { self, nixpkgs, flake-utils, gomod2nix, pre-commit-hooks, leiserfg-overlay, ... }:
     (flake-utils.lib.eachDefaultSystem
       (system:
         let
@@ -25,6 +26,7 @@
           devShells.default = callPackage ./shell.nix {
             inherit (gomod2nix.legacyPackages.${system}) mkGoEnv gomod2nix;
             inherit pre-commit-hooks;
+            mypkgs = leiserfg-overlay.packages.${system}; 
           };
         })
     );
