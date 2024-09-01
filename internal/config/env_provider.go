@@ -1,6 +1,8 @@
 package config
 
 import (
+	"fmt"
+
 	log "github.com/sirupsen/logrus"
 
 	"github.com/spf13/viper"
@@ -22,7 +24,7 @@ func NewProvider(path string) (*EnvConfigProvider, error) {
 	viper.SetConfigFile(path)
 
 	if err := viper.ReadInConfig(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Error reading config file, %s", err)
 	}
 
 	if viper.GetBool(`debug`) {
