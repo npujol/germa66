@@ -1,0 +1,19 @@
+name: Go
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: [^1.23]
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build and test the stack
+      run: |
+        COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker compose -f docker-compose.testing.yml up --build --abort-on-container-exit
