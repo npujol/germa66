@@ -13,7 +13,7 @@ services:
     expose:
       - 7700
     env_file:
-      - ./testdata/.env
+      - ./testdata/test.env
     volumes:
       - ./meili_data_test:/meili_data
     command: meilisearch --snapshot-dir /meili_data/snapshots
@@ -27,7 +27,7 @@ services:
         progress: plain
       dockerfile: Dockerfile
     env_file:
-      - testdata/.env
+      - testdata/test.env
 
     command: >
       sh -c "go test -v ./... -cover"
