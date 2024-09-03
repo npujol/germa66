@@ -3,6 +3,7 @@ package meiliclient
 import (
 	"fmt"
 	"germa66/internal/config"
+	"germa66/internal/utils"
 	"os"
 
 	meilisearch "github.com/meilisearch/meilisearch-go"
@@ -22,10 +23,10 @@ type Service struct {
 
 // New creates a new MeiliClient using the provided configuration,
 // connects to the MeiliSearch instance and creates the index if it doesn't exist.
-func New(conf *config.Config) *Service {
+func New(conf *config.Config, iname string) *Service {
 	log.Infof("Creating connection to Meilisearch on %s", conf.MeilisearchHost)
 	client := meilisearch.New(conf.MeilisearchHost, meilisearch.WithAPIKey(conf.MeilisearchAPIKey))
-	index := client.Index(conf.MeiliIndex)
+	index := client.Index(iname)
 
 	return &Service{
 		client: client,
@@ -39,7 +40,6 @@ func (mc *Service) HealthCheck() bool {
 	return mc.client.IsHealthy()
 }
 
-
 func (mc *Service) ImportDictionary(filepath string) error {
 
 	csvData, err := os.ReadFile(filepath)
@@ -47,9 +47,15 @@ func (mc *Service) ImportDictionary(filepath string) error {
 		log.Fatalf("Error reading CSV file: %v", err)
 	}
 
+	utils.LogInfo(
+		fmt.Sprintf(`Adding %d documents to MeiliSearch index...`,
+			len(csvData)),
+	)
+
 	// Define the CsvDocumentsQuery options if needed (e.g., primary key)
 	query := &meilisearch.CsvDocumentsQuery{
 		// PrimaryKey: "your_primary_key_column_name",
+		CsvDelimiter: ",",
 	}
 
 	// Add the documents from the CSV to the index
@@ -59,13 +65,6 @@ func (mc *Service) ImportDictionary(filepath string) error {
 	}
 
 	fmt.Printf("Documents added with update ID: %d\n", update.TaskUID)
-	if err != nil {
-		return err
-	}
-
-	if update.Status != "succeeded" {
-		return fmt.Errorf("task status is not 'succeeded': %s", update.Status)
-	}
 
 	return nil
 }

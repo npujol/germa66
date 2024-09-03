@@ -24,7 +24,7 @@ pkgs.mkShell {
     goEnv
     gomod2nix
     pkgs.golangci-lint
-    pkgs.go_1_23
+    pkgs.go_1_22
     pkgs.gotools
     pkgs.go-junit-report
     pkgs.go-task

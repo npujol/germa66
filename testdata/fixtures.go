@@ -23,3 +23,11 @@ func ConfigFixture() *config.Config {
 	}
 	return conf
 }
+
+func DictionaryFixturePath() string {
+	path, err := filepath.Abs("../../testdata/import/deutsch_spanisch.BGL")
+	if err != nil {
+		log.Fatal(err)
+	}
+	return path
+}

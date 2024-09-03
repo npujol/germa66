@@ -1,91 +1,81 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"germa66/internal/config"
 	"germa66/internal/meiliclient"
+	"germa66/internal/utils"
 	"os"
-	"os/exec"
+	"strings"
+	"sync"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
 )
 
-func InitConfig() *config.Config {
-
-	// Setup logger
-	// Log as JSON instead of the default ASCII formatter.
-	log.SetFormatter(&log.JSONFormatter{})
-
-	// Setup the app's config
-	conf, confErr := setupConfig()
-	if confErr != nil {
-		log.Fatalf("Could not setup the config, due to %s.\n", confErr)
-	}
-	return conf
-}
-
-func setupConfig() (*config.Config, error) {
-	path := "./.env"
-	if len(os.Args) > 1 {
-		path = os.Args[1]
-	}
-
-	prov, err := config.NewProvider(path)
-	if err != nil {
-		return nil, err
-	}
-
-	conf, err2 := config.New(prov)
-	if err2 != nil {
-		return nil, err2
-	}
-
-	return conf, nil
-}
-
+var (
+	inputFile  string
+	outputFile string
+	configPath string
+)
 
 func main() {
-
-	conf := InitConfig()
-	// Input and output file paths
-	inputFile := "./data/deutsch_spanisch.BGL"
-	outputFile := "./data/deutsch_spanisch.csv"
-
-	// Run the pyglossary command
-	err := runPyGlossary(inputFile, outputFile)
-	if err != nil {
-		log.Fatalf("Error running pyglossary: %v", err)
+	// Initialize Cobra root command
+	rootCmd := &cobra.Command{
+		Use:   "app",
+		Short: "A CLI application for converting and importing dictionaries",
+		Run:   run,
 	}
 
-	log.Println("Conversion complete.")
+	// Define flags for the root command
+	rootCmd.PersistentFlags().StringVar(&configPath, "config", "./.env", "Path to configuration file")
+	rootCmd.Flags().StringVarP(&inputFile, "input", "i", "./import/deutsch_spanisch.BGL", "Input file path")
+	rootCmd.Flags().StringVarP(&outputFile, "output", "o", "./import/deutsch_spanisch.csv", "Output file path")
 
-	meili := meiliclient.New(conf)
-	importErr := meili.ImportDictionary(outputFile)
-
-	if importErr != nil {
-		log.Fatalf("Error importing dictionary: %v", importErr)
+	// Execute the root command
+	if err := rootCmd.Execute(); err != nil {
+		utils.LogFatalf("Error executing command: %v", err)
 	}
 }
 
-// runPyGlossary runs the pyglossary command and converts the file to CSV
-func runPyGlossary(inputFile, outputFile string) error {
-	// Prepare the pyglossary command
-	cmd := exec.Command("pyglossary", inputFile, outputFile, "--write-format=Csv")
+func run(cmd *cobra.Command, args []string) {
+	// Initialize configuration
+	conf := config.InitConfig(configPath)
 
-	// Get the output from the command
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &out
-
-	// Run the command
-	err := cmd.Run()
-	if err != nil {
-		return fmt.Errorf("pyglossary error: %v, output: %s", err, out.String())
+	// Run the pyglossary command
+	if err := utils.RunPyGlossary(inputFile, outputFile); err != nil {
+		utils.LogFatalf("Error running pyglossary: %v", err)
 	}
 
-	// Read the output to confirm successful execution
-	log.Println("pyglossary output:", out.String())
+	utils.LogInfo("Conversion complete.")
 
-	return nil
+	fileName := strings.Split(strings.Split(outputFile, "/")[len(strings.Split(outputFile, "/"))-1], ".")[0]
+
+	// Import the dictionary concurrently
+	var wg sync.WaitGroup
+	errCh := make(chan error, 1) // Buffer size 1 to handle a single error
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		meili := meiliclient.New(conf, fileName)
+		if err := meili.ImportDictionary(outputFile); err != nil {
+			errCh <- fmt.Errorf("Error importing dictionary: %v", err)
+		}
+	}()
+
+	// Wait for the import to complete or fail
+	go func() {
+		wg.Wait()
+		close(errCh)
+	}()
+
+	// Handle any errors from the import process
+	if err, ok := <-errCh; ok {
+		utils.LogFatalf("%v", err)
+	}
+
+	// Clean up the output file
+	if err := os.Remove(outputFile); err != nil {
+		utils.LogFatalf("Error removing output file: %v", err)
+	}
 }

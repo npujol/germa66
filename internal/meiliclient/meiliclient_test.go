@@ -5,6 +5,8 @@ import (
 	"germa66/testdata"
 
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 var (
@@ -14,7 +16,7 @@ var (
 func TestMeiliClient(t *testing.T) {
 	t.Parallel()
 
-	MeiliTestClient = meiliclient.New(testdata.ConfigFixture())
+	MeiliTestClient = meiliclient.New(testdata.ConfigFixture(), "test")
 
 	testsHealthCheck := []struct {
 		name string
@@ -28,6 +30,22 @@ func TestMeiliClient(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			MeiliTestClient.HealthCheck()
+		})
+	}
+
+	testsImportDictionary := []struct {
+		name string
+	}{
+		{
+			"it_should_be_healthy",
+		},
+	}
+
+	for _, test := range testsImportDictionary {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			e := MeiliTestClient.ImportDictionary(testdata.DictionaryFixturePath())
+			assert.NoError(t, e)
 		})
 	}
 }
