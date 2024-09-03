@@ -44,8 +44,14 @@ func TestMeiliClient(t *testing.T) {
 	for _, test := range testsImportDictionary {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			e := MeiliTestClient.ImportDictionary(testdata.DictionaryFixturePath())
-			assert.NoError(t, e)
+			content := []map[string]interface{}{
+				{
+					"test":   "test",
+					"test_2": 1,
+				},
+			}
+			e := MeiliTestClient.ImportDictionary(content)
+			assert.NoError(t, e, "Error importing dictionary")
 		})
 	}
 }

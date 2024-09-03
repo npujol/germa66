@@ -3,8 +3,6 @@ package meiliclient
 import (
 	"fmt"
 	"germa66/internal/config"
-	"germa66/internal/utils"
-	"os"
 
 	meilisearch "github.com/meilisearch/meilisearch-go"
 	log "github.com/sirupsen/logrus"
@@ -12,7 +10,7 @@ import (
 
 type MeiliClient interface {
 	HealthCheck() bool
-	ImportDictionary(filepath string) error
+	ImportDictionary(data []map[string]interface{}) error
 }
 
 type Service struct {
@@ -40,26 +38,9 @@ func (mc *Service) HealthCheck() bool {
 	return mc.client.IsHealthy()
 }
 
-func (mc *Service) ImportDictionary(filepath string) error {
-
-	csvData, err := os.ReadFile(filepath)
-	if err != nil {
-		log.Fatalf("Error reading CSV file: %v", err)
-	}
-
-	utils.LogInfo(
-		fmt.Sprintf(`Adding %d documents to MeiliSearch index...`,
-			len(csvData)),
-	)
-
-	// Define the CsvDocumentsQuery options if needed (e.g., primary key)
-	query := &meilisearch.CsvDocumentsQuery{
-		// PrimaryKey: "your_primary_key_column_name",
-		CsvDelimiter: ",",
-	}
-
+func (mc *Service) ImportDictionary(data []map[string]interface{}) error {
 	// Add the documents from the CSV to the index
-	update, err := mc.index.AddDocumentsCsv(csvData, query)
+	update, err := mc.index.AddDocuments(data)
 	if err != nil {
 		log.Fatalf("Error adding documents to MeiliSearch index: %v", err)
 	}
