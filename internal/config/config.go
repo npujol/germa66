@@ -11,6 +11,7 @@ type Config struct {
 	MeilisearchHost   string
 	MeilisearchAPIKey string
 	MeiliIndex        string
+	BatchSize         int
 	Debug             bool
 }
 
@@ -45,6 +46,7 @@ func New(prov EnvProvider) (*Config, error) {
 		MeilisearchHost:   prov.GetString("MEILISEARCH_HOST"),
 		MeilisearchAPIKey: prov.GetString("MEILISEARCH_API_KEY"),
 		Debug:             prov.GetBool("DEBUG"),
+		BatchSize:         20000,
 	}
 
 	err := conf.ensureData()
