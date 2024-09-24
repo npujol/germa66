@@ -3,9 +3,9 @@ package meiliclient
 import (
 	"fmt"
 	"germa66/internal/config"
+	"germa66/internal/utils"
 
 	meilisearch "github.com/meilisearch/meilisearch-go"
-	log "github.com/sirupsen/logrus"
 )
 
 type MeiliClient interface {
@@ -22,7 +22,7 @@ type Service struct {
 // New creates a new MeiliClient using the provided configuration,
 // connects to the MeiliSearch instance and creates the index if it doesn't exist.
 func New(conf *config.Config, iname string) *Service {
-	log.Infof("Creating connection to Meilisearch on %s", conf.MeilisearchHost)
+	utils.LogInfo(fmt.Sprintf("Creating connection to Meilisearch on %s", conf.MeilisearchHost))
 	client := meilisearch.New(conf.MeilisearchHost, meilisearch.WithAPIKey(conf.MeilisearchAPIKey))
 	index := client.Index(iname)
 
@@ -42,7 +42,7 @@ func (mc *Service) ImportDictionary(data []map[string]interface{}) error {
 	// Add the documents from the CSV to the index
 	update, err := mc.index.AddDocuments(data)
 	if err != nil {
-		log.Fatalf("Error adding documents to MeiliSearch index: %v", err)
+		utils.LogFatalf("Error adding documents to MeiliSearch index: %v", err)
 	}
 
 	fmt.Printf("Documents added with update ID: %d\n", update.TaskUID)

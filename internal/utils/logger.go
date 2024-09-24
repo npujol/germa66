@@ -19,14 +19,17 @@ func LogInfo(args ...interface{}) {
 	log.Println(args...)
 }
 
-
 // LogError logs error messages
 func LogError(args ...interface{}) {
 	log.Error(args...)
 }
 
-
 // LogDebug logs debug messages
 func LogDebug(args ...interface{}) {
 	log.Debug(args...)
+}
+
+// LogWarn logs warning messages
+func LogWarn(args ...interface{}) {
+	log.Warn(args...)
 }

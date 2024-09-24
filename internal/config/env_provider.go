@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"germa66/internal/utils"
 
 	log "github.com/sirupsen/logrus"
 
@@ -28,7 +29,7 @@ func NewProvider(path string) (*EnvConfigProvider, error) {
 	}
 
 	if viper.GetBool(`debug`) {
-		log.Println("Service RUN on DEBUG mode")
+		utils.LogInfo("Service RUN on DEBUG mode")
 		// Log the Debug severity or above.
 		log.SetLevel(log.DebugLevel)
 	} else {
