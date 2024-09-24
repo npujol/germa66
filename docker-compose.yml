@@ -6,16 +6,22 @@
 services:
   meilisearch:
     image: getmeili/meilisearch:v1.9
-    container_name: meili-dictionary
+    container_name: meilidb
     ports:
       - "7700:7700"
+    expose:
+      - "7700"
     env_file:
       - .env
     volumes:
-      - ./meili-dictionary:/meili_data
-    command: meilisearch --snapshot-dir /meili-dictionary/snapshots
-    restart: unless-stopped
+      - ./meili_data:/meili_data
+    command: meilisearch
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:7700/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
 volumes:
-  meili-dictionary:
+  meili_data:
     driver: local

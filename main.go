@@ -1,7 +1,8 @@
 package main
 
 import (
-	"germa66/internal/processor"
+	"germa66/internal/config"
+	"germa66/internal/meiliclient"
 	"germa66/internal/utils"
 
 	"github.com/spf13/cobra"
@@ -32,5 +33,10 @@ func main() {
 
 func run(cmd *cobra.Command, args []string) {
 	// Pass the configuration and file paths to the process function
-	processor.Process(configPath, inputFile)
+	conf := config.InitConfig(configPath)
+	client := meiliclient.New(conf)
+	err := client.ImportDictionary(inputFile)
+	if err != nil {
+		utils.LogFatalf("Error importing dictionary: %v", err)
+	}
 }

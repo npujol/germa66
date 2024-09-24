@@ -26,3 +26,5 @@ go.work.sum
 meili-dictionary/*
 data/*
 import/*
+
+/meili_data/

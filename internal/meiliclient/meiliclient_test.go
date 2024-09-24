@@ -16,7 +16,7 @@ var (
 func TestMeiliClient(t *testing.T) {
 	t.Parallel()
 
-	MeiliTestClient = meiliclient.New(testdata.ConfigFixture(), "test")
+	MeiliTestClient = meiliclient.New(testdata.ConfigFixture())
 
 	testsHealthCheck := []struct {
 		name string
@@ -44,13 +44,8 @@ func TestMeiliClient(t *testing.T) {
 	for _, test := range testsImportDictionary {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			content := []map[string]interface{}{
-				{
-					"test":   "test",
-					"test_2": 1,
-				},
-			}
-			e := MeiliTestClient.ImportDictionary(content)
+			path := testdata.DictionaryFixturePath()
+			e := MeiliTestClient.ImportDictionary(path)
 			assert.NoError(t, e, "Error importing dictionary")
 		})
 	}
