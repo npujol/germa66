@@ -7,6 +7,5 @@
 ## How to test the API
 
 ```bash
-curl -kvs --http2 --request GET 'http://0.0.0.0:7700/tasks' \                     main[✘!?⇡] 
-                  -H 'Authorization: Bearer MASTER_KEY_MASTER_KEY_MASTER_KEY'
+curl -kvs --http2 --request GET 'http://0.0.0.0:7700/tasks' -H 'Authorization: Bearer MASTER_KEY_MASTER_KEY_MASTER_KEY'
 ```

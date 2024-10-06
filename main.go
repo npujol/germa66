@@ -22,8 +22,18 @@ func main() {
 	}
 
 	// Define flags for the root command
-	rootCmd.PersistentFlags().StringVar(&configPath, "config", "./.env", "Path to configuration file")
-	rootCmd.Flags().StringVarP(&inputFile, "input", "i", "./import/deutsch_spanisch.BGL", "Input file path")
+	rootCmd.PersistentFlags().StringVar(
+		&configPath,
+		"config", "./.env",
+		"Path to configuration file",
+	)
+	rootCmd.Flags().StringVarP(
+		&inputFile,
+		"input",
+		"i",
+		"./import/deutsch_spanisch.BGL",
+		"Input file path",
+	)
 
 	// Execute the root command
 	if err := rootCmd.Execute(); err != nil {

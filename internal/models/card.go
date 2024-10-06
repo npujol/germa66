@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"germa66/internal/utils"
+	"strconv"
 )
 
 var ErrInsufficientFields = errors.New("record has insufficient fields")
@@ -41,18 +42,23 @@ func (c *Card) SearchFields() string {
 }
 
 // RowToCard converts a row of string data to a Card struct.
-func RowToCard(record []string, backed string) (Card, error) {
+func RowToCard(record []string, backed string, key int) (Card, error) {
+	utils.LogDebug(
+		fmt.Sprintf("Record: %v with key: %d and %v fields", record, key, len(record)),
+	)
+
 	requiredLength := 2
+
 	if len(record) < requiredLength {
 		return Card{}, ErrInsufficientFields
 	}
-	utils.LogInfo(record)
+
 	c := Card{
-		ID:          record[0],
+		ID:          strconv.Itoa(key),
 		Word:        record[0],
 		Description: record[1],
 		Backend:     backed,
 	}
-	utils.LogInfo(c.String())
+
 	return c, nil
 }

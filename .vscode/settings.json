@@ -1,17 +1,16 @@
 {
-    "nix.enableLanguageServer": true,
-    "nix.serverPath": "nil",
-    "go.formatTool": "gofmt",
-    "editor.formatOnSave": true,
-    "go.lintTool": "golangci-lint",
-    "go.coverMode": "default",
-    "go.coverOnSave": true,
-    "go.vetOnSave": "workspace",
-    "go.coverShowCounts": true,
-    "go.lintOnSave": "workspace",
-    "go.testOnSave": true,
-    "go.generateTestsFlags": [
-        "-s",
-        "-r"
-    ]
+  "nix.enableLanguageServer": true,
+  "nix.serverPath": "nil",
+  "go.formatTool": "gofmt",
+  "editor.formatOnSave": true,
+  "go.lintTool": "golangci-lint",
+  "go.coverMode": "atomic",
+  "go.coverOnSave": true,
+  "go.vetOnSave": "workspace",
+  "go.coverShowCounts": true,
+  "go.lintOnSave": "workspace",
+  "go.testOnSave": true,
+  "go.generateTestsFlags": ["-s", "-r"],
+  "cSpell.words": ["meilisearch", "Meilisearch"],
+  "go.trace.server": "messages"
 }

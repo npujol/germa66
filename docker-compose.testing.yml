@@ -16,8 +16,7 @@ services:
       - ./testdata/test.env
     volumes:
       - ./meili_data_test:/meili_data
-    command: meilisearch --snapshot-dir /meili_data/snapshots
-    restart: unless-stopped
+    command: meilisearch
 
   test-app:
     image: app

@@ -21,7 +21,6 @@ type MeiliClient interface {
 }
 
 type Service struct {
-	index  meilisearch.IndexManager
 	client meilisearch.ServiceManager
 	conf   *config.Config
 }
@@ -30,17 +29,12 @@ type Service struct {
 // connects to the MeiliSearch instance and creates the index if it doesn't exist.
 func New(conf *config.Config) *Service {
 	utils.LogInfo(fmt.Sprintf("Creating connection to Meilisearch on %s", conf.MeilisearchHost))
-	client := meilisearch.New(conf.MeilisearchHost, meilisearch.WithAPIKey(conf.MeilisearchAPIKey))
-	index := client.Index("cards")
-	_, err := index.UpdateIndex("id")
+	utils.LogInfo("Creating index %s" + conf.MeiliIndex)
 
-	if err != nil {
-		utils.LogError(fmt.Sprintf("Error updating index: %v\n", err))
-	}
+	client := meilisearch.New(conf.MeilisearchHost, meilisearch.WithAPIKey(conf.MeilisearchAPIKey))
 
 	return &Service{
 		client: client,
-		index:  index,
 		conf:   conf,
 	}
 }
@@ -59,13 +53,17 @@ func (mc *Service) ImportDictionary(path string) error {
 
 		return err
 	}
+	indexName := utils.GetPathName(path)
+	utils.LogInfo(fmt.Sprintf("Index name: %s", indexName))
+
+	index := mc.client.Index(indexName)
 
 	for key, batch := range batches {
 		batchInitTime := time.Now()
 
 		utils.LogInfo(fmt.Sprintf("Uploading Batch %d...\n", key+1))
 
-		task, err := mc.index.AddDocuments(batch)
+		task, err := index.AddDocuments(batch)
 		if err != nil {
 			utils.LogError(fmt.Sprintf("Error adding documents to Meilisearch: %v\n", err))
 
@@ -118,7 +116,9 @@ func (mc *Service) batchProcess(filePath string) ([][]models.Card, error) {
 
 	wrongCount := 0
 
+	i := 0
 	for record, err := reader.Read(); err != io.EOF; record, err = reader.Read() {
+		i++
 		if err != nil {
 			utils.LogDebug(fmt.Sprintf("Warning: skipping row due to error: %v\n", err))
 
@@ -129,8 +129,7 @@ func (mc *Service) batchProcess(filePath string) ([][]models.Card, error) {
 			record[i] = strings.TrimSpace(record[i])
 		}
 
-		// uuid3 or uuid5 on merchant xid plus product xid with our own namespace
-		product, pErr := models.RowToCard(record, fileName)
+		product, pErr := models.RowToCard(record, fileName, i)
 
 		if pErr != nil {
 			wrongCount++
@@ -158,5 +157,12 @@ func (mc *Service) batchProcess(filePath string) ([][]models.Card, error) {
 		utils.LogInfo(fmt.Sprintf("Skipped %d rows due to errors\n", wrongCount))
 	}
 
+	utils.LogInfo(fmt.Sprintf("Total time processing CSV with %d batches: %s\n", len(batches), time.Since(initTime)))
+
+	if len(batches) == 0 {
+		utils.LogInfo("No batches to upload")
+
+		return nil, nil
+	}
 	return batches, nil
 }

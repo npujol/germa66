@@ -9,9 +9,9 @@ import (
 // RunPyGlossary runs the pyglossary command and converts the file to CSV
 func RunPyGlossary(inputFile string) (string, error) {
 
- 	outputFile := ChangePathExt(inputFile, ".csv")
+	outputFile := ChangePathExt(inputFile, ".csv")
 	LogInfo("pyglossary input:", inputFile)
-	cmd := exec.Command("pyglossary", inputFile, outputFile,  "--write-format=Csv")
+	cmd := exec.Command("pyglossary", inputFile, outputFile, "--write-format=Csv")
 
 	var out bytes.Buffer
 
@@ -26,5 +26,5 @@ func RunPyGlossary(inputFile string) (string, error) {
 	}
 
 	LogDebug("pyglossary output: ", out.String())
-	return  outputFile, nil
+	return outputFile, nil
 }
