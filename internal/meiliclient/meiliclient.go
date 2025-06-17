@@ -17,7 +17,6 @@ import (
 type MeiliClient interface {
 	HealthCheck() bool
 	ImportDictionary(path string) error
-	batchProcess(filePath string) ([][]models.Card, error)
 }
 
 type Service struct {
@@ -26,16 +25,17 @@ type Service struct {
 	conf   *config.Config
 }
 
-// New creates a new MeiliClient using the provided configuration,
-// connects to the MeiliSearch instance and creates the index if it doesn't exist.
+// New creates a new MeiliClient using the provided configuration.
+// It establishes a connection to MeiliSearch and sets up the index.
 func New(conf *config.Config) *Service {
 	utils.LogInfo(fmt.Sprintf("Creating connection to Meilisearch on %s", conf.MeilisearchHost))
-	client := meilisearch.New(conf.MeilisearchHost, meilisearch.WithAPIKey(conf.MeilisearchAPIKey))
-	index := client.Index("cards")
-	_, err := index.UpdateIndex("id")
 
-	if err != nil {
-		utils.LogError(fmt.Sprintf("Error updating index: %v\n", err))
+	client := meilisearch.New(conf.MeilisearchHost, meilisearch.WithAPIKey(conf.MeilisearchAPIKey))
+	index := client.Index(conf.MeiliIndex)
+
+	// Set primary key for the index
+	if _, err := index.UpdateIndex("id"); err != nil {
+		utils.LogWarn(fmt.Sprintf("Warning: failed to set primary key for index: %v", err))
 	}
 
 	return &Service{
@@ -51,112 +51,130 @@ func (mc *Service) HealthCheck() bool {
 }
 
 func (mc *Service) ImportDictionary(path string) error {
-	initTime := time.Now()
-	// Batch processing of the CSV file
+	startTime := time.Now()
+	utils.LogInfo(fmt.Sprintf("Starting dictionary import from: %s", path))
+
+	// Convert BGL to CSV and process into batches
 	batches, err := mc.batchProcess(path)
 	if err != nil {
-		utils.LogError(fmt.Sprintf("Error processing CSV: %v", err))
-
-		return err
+		return fmt.Errorf("failed to process dictionary file: %w", err)
 	}
 
-	for key, batch := range batches {
-		batchInitTime := time.Now()
+	utils.LogInfo(fmt.Sprintf("Processed %d batches for upload", len(batches)))
 
-		utils.LogInfo(fmt.Sprintf("Uploading Batch %d...\n", key+1))
-
-		task, err := mc.index.AddDocuments(batch)
-		if err != nil {
-			utils.LogError(fmt.Sprintf("Error adding documents to Meilisearch: %v\n", err))
-
-			return err
+	// Upload batches to MeiliSearch
+	for i, batch := range batches {
+		if err := mc.uploadBatch(i+1, batch); err != nil {
+			return fmt.Errorf("failed to upload batch %d: %w", i+1, err)
 		}
-
-		utils.LogInfo(fmt.Sprintf(
-			"Batch %d successfully uploaded with TaskUID: %d with %d documents took %s\n",
-			key+1, task.TaskUID, len(batch), time.Since(batchInitTime)))
 	}
 
-	utils.LogInfo(fmt.Sprintf("Total upload time: %s\n", time.Since(initTime)))
+	utils.LogInfo(fmt.Sprintf("Dictionary import completed in %s", time.Since(startTime)))
+	return nil
+}
+
+// uploadBatch uploads a single batch of documents to MeiliSearch
+func (mc *Service) uploadBatch(batchNum int, batch []models.Card) error {
+	batchStart := time.Now()
+	utils.LogInfo(fmt.Sprintf("Uploading batch %d (%d documents)...", batchNum, len(batch)))
+
+	task, err := mc.index.AddDocuments(batch)
+	if err != nil {
+		return fmt.Errorf("failed to add documents to MeiliSearch: %w", err)
+	}
+
+	utils.LogInfo(fmt.Sprintf(
+		"Batch %d uploaded successfully (TaskUID: %d) in %s",
+		batchNum, task.TaskUID, time.Since(batchStart)))
 
 	return nil
 }
 
+// batchProcess converts BGL file to CSV and processes it into batches
 func (mc *Service) batchProcess(filePath string) ([][]models.Card, error) {
-	initTime := time.Now()
-	outputFile, err := utils.RunPyGlossary(filePath)
+	startTime := time.Now()
+
+	// Convert BGL to CSV using pyglossary
+	csvFile, err := utils.RunPyGlossary(filePath)
 	if err != nil {
-		utils.LogFatalf("Error running pyglossary: %v", err)
+		return nil, fmt.Errorf("failed to convert BGL to CSV: %w", err)
+	}
+	utils.LogInfo("BGL to CSV conversion completed")
+
+	// Process CSV file into batches
+	batches, err := mc.processCSVFile(csvFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to process CSV file: %w", err)
 	}
 
-	utils.LogInfo("Conversion complete.")
+	utils.LogInfo(fmt.Sprintf("Batch processing completed in %s", time.Since(startTime)))
+	return batches, nil
+}
 
-	fileName := utils.GetPathName(outputFile)
-	file, err := os.Open(outputFile)
-
+// processCSVFile reads CSV file and creates batches of cards
+func (mc *Service) processCSVFile(csvPath string) ([][]models.Card, error) {
+	file, err := os.Open(csvPath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to open CSV file: %w", err)
 	}
-
 	defer file.Close()
 
 	reader := csv.NewReader(file)
+	reader.FieldsPerRecord = -1 // Allow variable number of fields
 
-	reader.FieldsPerRecord = -1
-
-	_, err = reader.Read()
-
-	if err != nil {
-		utils.LogWarn(fmt.Sprintf("Warning: skipping header due to error: %v\n", err))
-
-		return nil, err
+	// Skip header row
+	if _, err := reader.Read(); err != nil {
+		return nil, fmt.Errorf("failed to read CSV header: %w", err)
 	}
 
+	fileName := utils.GetPathName(csvPath)
 	var batches [][]models.Card
+	var currentBatch []models.Card
+	skippedRows := 0
+	totalRows := 0
 
-	var batch []models.Card
-
-	wrongCount := 0
-
-	for record, err := reader.Read(); err != io.EOF; record, err = reader.Read() {
+	for {
+		record, err := reader.Read()
+		if err == io.EOF {
+			break
+		}
 		if err != nil {
-			utils.LogDebug(fmt.Sprintf("Warning: skipping row due to error: %v\n", err))
-
+			utils.LogDebug(fmt.Sprintf("Skipping row due to read error: %v", err))
+			skippedRows++
 			continue
 		}
 
+		totalRows++
+
+		// Trim whitespace from all fields
 		for i := range record {
 			record[i] = strings.TrimSpace(record[i])
 		}
 
-		// uuid3 or uuid5 on merchant xid plus product xid with our own namespace
-		product, pErr := models.RowToCard(record, fileName)
-
-		if pErr != nil {
-			wrongCount++
-
+		// Convert row to Card
+		card, err := models.RowToCard(record, fileName)
+		if err != nil {
+			utils.LogDebug(fmt.Sprintf("Skipping invalid row: %v", err))
+			skippedRows++
 			continue
 		}
 
-		batch = append(batch, product)
+		currentBatch = append(currentBatch, card)
 
-		if len(batch) >= mc.conf.BatchSize {
-			batches = append(batches, batch)
-			batch = []models.Card{}
+		// Create new batch when current batch reaches configured size
+		if len(currentBatch) >= mc.conf.BatchSize {
+			batches = append(batches, currentBatch)
+			currentBatch = []models.Card{}
 		}
 	}
 
-	utils.LogInfo("Reached EOF, exiting...")
-
-	if len(batch) > 0 {
-		batches = append(batches, batch)
+	// Add remaining cards as final batch
+	if len(currentBatch) > 0 {
+		batches = append(batches, currentBatch)
 	}
 
-	utils.LogInfo(fmt.Sprintf("Total time processing batches: %s\n", time.Since(initTime)))
-
-	if wrongCount > 0 {
-		utils.LogInfo(fmt.Sprintf("Skipped %d rows due to errors\n", wrongCount))
-	}
+	utils.LogInfo(fmt.Sprintf("Processed %d total rows, created %d batches, skipped %d invalid rows",
+		totalRows, len(batches), skippedRows))
 
 	return batches, nil
 }

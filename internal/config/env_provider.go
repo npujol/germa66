@@ -18,28 +18,25 @@ type EnvProvider interface {
 type EnvConfigProvider struct {
 }
 
-// NewEnvConfigProvider handles configurations using env variables.
-// Return an error when it can't read the *.env file
+// NewProvider creates a new environment configuration provider.
+// It reads configuration from the specified file path and sets up logging.
 func NewProvider(path string) (*EnvConfigProvider, error) {
 	viper.SetConfigType("env")
 	viper.SetConfigFile(path)
 
 	if err := viper.ReadInConfig(); err != nil {
-		return nil, fmt.Errorf("Error reading config file, %s", err)
+		return nil, fmt.Errorf("failed to read config file %s: %w", path, err)
 	}
 
-	if viper.GetBool(`debug`) {
-		utils.LogInfo("Service RUN on DEBUG mode")
-		// Log the Debug severity or above.
+	// Configure logging based on debug setting
+	if viper.GetBool("DEBUG") {
+		utils.LogInfo("Service running in DEBUG mode")
 		log.SetLevel(log.DebugLevel)
 	} else {
-		// Log the Info severity or above.
 		log.SetLevel(log.InfoLevel)
 	}
 
-	prov := &EnvConfigProvider{}
-
-	return prov, nil
+	return &EnvConfigProvider{}, nil
 }
 
 // GetString returns a string value from the environment
@@ -47,12 +44,12 @@ func (*EnvConfigProvider) GetString(key string) string {
 	return viper.GetString(key)
 }
 
-// GetUint returns a uint value from the environment
+// GetInt returns an integer value from the environment
 func (*EnvConfigProvider) GetInt(key string) int {
 	return viper.GetInt(key)
 }
 
-// GetBool returns a bool value from the environment
+// GetBool returns a boolean value from the environment
 func (*EnvConfigProvider) GetBool(key string) bool {
 	return viper.GetBool(key)
 }

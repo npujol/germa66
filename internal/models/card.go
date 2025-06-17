@@ -1,13 +1,22 @@
 package models
 
 import (
+	"crypto/md5"
 	"errors"
 	"fmt"
-	"germa66/internal/utils"
+	"strings"
 )
 
-var ErrInsufficientFields = errors.New("record has insufficient fields")
+var (
+	ErrInsufficientFields = errors.New("record has insufficient fields")
+	ErrEmptyWord          = errors.New("word cannot be empty")
+)
 
+const (
+	RequiredFieldCount = 2
+)
+
+// CardFields returns the list of searchable fields for a Card
 func CardFields() []string {
 	return []string{
 		"word",
@@ -16,9 +25,11 @@ func CardFields() []string {
 	}
 }
 
+// CardFilterableFields returns the list of filterable fields for a Card
 func CardFilterableFields() []string {
 	return []string{
 		"word",
+		"backend",
 	}
 }
 
@@ -41,18 +52,39 @@ func (c *Card) SearchFields() string {
 }
 
 // RowToCard converts a row of string data to a Card struct.
-func RowToCard(record []string, backed string) (Card, error) {
-	requiredLength := 2
-	if len(record) < requiredLength {
-		return Card{}, ErrInsufficientFields
+// It validates the input and generates a unique ID based on the word and backend.
+func RowToCard(record []string, backend string) (Card, error) {
+	if len(record) < RequiredFieldCount {
+		return Card{}, fmt.Errorf("%w: expected at least %d fields, got %d",
+			ErrInsufficientFields, RequiredFieldCount, len(record))
 	}
-	utils.LogInfo(record)
-	c := Card{
-		ID:          record[0],
-		Word:        record[0],
-		Description: record[1],
-		Backend:     backed,
+
+	word := strings.TrimSpace(record[0])
+	if word == "" {
+		return Card{}, ErrEmptyWord
 	}
-	utils.LogInfo(c.String())
-	return c, nil
+
+	description := ""
+	if len(record) > 1 {
+		description = strings.TrimSpace(record[1])
+	}
+
+	// Generate unique ID using word and backend
+	id := generateCardID(word, backend)
+
+	card := Card{
+		ID:          id,
+		Word:        word,
+		Description: description,
+		Backend:     backend,
+	}
+
+	return card, nil
+}
+
+// generateCardID creates a unique identifier for a card based on word and backend
+func generateCardID(word, backend string) string {
+	data := fmt.Sprintf("%s:%s", strings.ToLower(word), backend)
+	hash := md5.Sum([]byte(data))
+	return fmt.Sprintf("%x", hash)
 }
